@@ -25,7 +25,7 @@ export class Arena extends Phaser.Scene {
       attackAt: -10, hurtAt: -10, healAt: -10, heavy: false,
     }));
     this.effects = this.add.graphics().setDepth(4);
-    this.banner = this.add.text(480, 55, 'LA FORJA', {
+    this.banner = this.add.text(480, 55, 'FORJA / SECTOR ORBITAL', {
       fontFamily: 'monospace', fontSize: '17px', color: '#ae9677',
       align: 'center', wordWrap: { width: 850 },
     }).setOrigin(.5).setDepth(6);
@@ -49,30 +49,27 @@ export class Arena extends Phaser.Scene {
 
   paintArena() {
     const g = this.add.graphics();
-    g.fillGradientStyle(0x172b30, 0x172b30, 0x111819, 0x111819, 1);
-    g.fillRect(0, 0, 960, 430);
-    g.fillStyle(0x1d3031); g.fillCircle(480, 135, 165);
-    g.lineStyle(1, 0x44615a, .3);
-    for (let i = 0; i < 7; i++) g.strokeCircle(480, 135, 45 + i * 22);
-    g.fillStyle(0x263a37); g.fillRect(0, 275, 960, 155);
-    g.fillStyle(0x344740); g.fillEllipse(480, 338, 790, 110);
-    g.lineStyle(2, 0x5a6c55, .4); g.strokeEllipse(480, 338, 790, 110);
-    for (let x = 70; x < 960; x += 140) {
-      g.fillStyle(0x1b2627); g.fillRect(x, 120, 35, 158);
-      g.fillStyle(0x324a43); g.fillRect(x - 6, 110, 47, 15);
+    g.fillGradientStyle(0x10223b, 0x151a36, 0x0c161f, 0x0c161f, 1); g.fillRect(0, 0, 960, 430);
+    // Deterministic starfield and orbital window.
+    for (let n = 0; n < 65; n++) { g.fillStyle(0xb9e6ff, .25 + (n % 4) * .15); g.fillCircle((n * 137 + 37) % 960, (n * 73 + 21) % 255, n % 6 === 0 ? 2 : 1); }
+    g.fillStyle(0x203e59); g.fillCircle(480, 119, 102); g.fillStyle(0x264d67); g.fillEllipse(459, 107, 120, 58);
+    g.lineStyle(2, 0x5e9ab1, .3); g.strokeEllipse(480, 119, 294, 65);
+    g.fillStyle(0x162c3e); g.fillRect(0, 285, 960, 145);
+    g.lineStyle(1, 0x436f80, .4);
+    for (let x = -600; x <= 1500; x += 120) g.lineBetween(480 + (x - 480) * .45, 285, x, 430);
+    for (const y of [299, 322, 358, 410]) g.lineBetween(0, y, 960, y);
+    g.fillStyle(0x233f4a); g.fillEllipse(480, 338, 790, 110);
+    g.lineStyle(3, 0x57cbbd, .65); g.strokeEllipse(480, 338, 790, 110);
+    for (const x of [90, 850]) {
+      g.fillStyle(0x1d3446); g.fillRoundedRect(x, 155, 20, 130, 5);
+      g.fillStyle(0x6ce7d9); g.fillRoundedRect(x + 6, 163, 8, 91, 3);
+      g.fillStyle(0x74fff1, .06); g.fillEllipse(x + 10, 210, 105, 190);
     }
-    for (const x of [130, 830]) {
-      g.fillStyle(0x8c593b); g.fillRect(x, 220, 7, 64);
-      g.fillStyle(0xffbd68); g.fillTriangle(x - 9, 225, x + 16, 225, x + 5, 190);
-      this.add.circle(x + 4, 215, 35, 0xff9c46, .06);
-    }
-    this.add.text(25, 400, 'ENTRENAMIENTO / SIN CLASIFICACIÓN', {
-      fontSize: '11px', fontFamily: 'monospace', color: '#899c89',
-    });
+    this.add.text(25, 400, 'SECTOR ORBITAL / ALIENS & ROBOTS', {fontSize:'11px',fontFamily:'monospace',color:'#91bcc6'});
   }
 
   start(config) {
-    this.model = createCombat(config.build, config.difficulty, config.enemyBuild);
+    this.model = createCombat(config.build, config.difficulty, config.enemyBuild,config.rulesVersion);
     this.actions = [];
     this.model.status = 'running';
     this.lastEvent = 0; this.acc = 0; this.clock = 0; this.finishAt = null;
@@ -97,7 +94,7 @@ export class Arena extends Phaser.Scene {
     if (this.model.status === 'running') {
       this.model.status = 'paused'; this.cameras.main.stopShake();
     } else if (this.model.status === 'paused') this.model.status = 'running';
-    this.banner.setText(this.model.status === 'paused' ? 'EN PAUSA' : 'LA FORJA');
+    this.banner.setText(this.model.status === 'paused' ? 'EN PAUSA' : 'FORJA / SECTOR ORBITAL');
     this.send();
   }
 
@@ -180,38 +177,66 @@ export class Arena extends Phaser.Scene {
     g.rotateCanvas(-f.direction * fall * 1.25);
     g.scaleCanvas(f.direction, 1);
     g.translateCanvas(0, breath);
-    // Articulated legs alternate steps while closing the gap.
+    const alien = i === 0;
     const step = attacking ? Math.sin(attack * 28) * 12 : 0;
-    g.lineStyle(15, 0x303b42, 1);
-    g.lineBetween(-16, -60, -23 + step, -30); g.lineBetween(-23 + step, -30, -29 + step, -5);
-    g.lineBetween(16, -60, 26 - step, -30); g.lineBetween(26 - step, -30, 31 - step, -5);
-    g.lineStyle(12, 0x111d20); g.lineBetween(-33 + step, -3, -17 + step, -3); g.lineBetween(22 - step, -3, 38 - step, -3);
-    g.fillStyle(recoil > .2 ? 0xffdcc2 : f.color);
-    g.fillRoundedRect(-29, -133, 58, 78, 12);
-    g.fillStyle(0x27383a); g.fillRect(-29, -72, 58, 12);
-    g.fillStyle(0xdbc89b); g.fillRect(-5, -72, 10, 12);
-    // Raised weapon telegraphs charge; extended arm makes actual contact.
+    const handX = guarding ? 43 : 45 + (attacking ? Math.sin(clamp(attack / .32, 0, 1) * Math.PI) : 0) * 37;
     const swing = attacking ? Math.sin(clamp(attack / .32, 0, 1) * Math.PI) : 0;
-    const handX = guarding ? 43 : 45 + swing * 37;
     const handY = winner ? -187 : charging ? -165 : -98 - swing * (f.heavy ? 30 : 15);
-    g.lineStyle(15, f.color);
-    g.lineBetween(-26, -117, -40, winner ? -178 : -83);
-    g.lineBetween(25, -117, handX - 15, handY + 12); g.lineBetween(handX - 15, handY + 12, handX, handY);
-    g.fillStyle(0xe6b891); g.fillCircle(handX, handY, 8);
+    if (alien) {
+      // Alien: long limbs, exosuit, oversized head and luminous eyes.
+      g.lineStyle(12, 0x415761);
+      g.lineBetween(-14, -60, -23 + step, -29); g.lineBetween(-23 + step, -29, -28 + step, -5);
+      g.lineBetween(14, -60, 25 - step, -29); g.lineBetween(25 - step, -29, 30 - step, -5);
+      g.fillStyle(0x74eab8); g.fillEllipse(-25 + step, -3, 30, 13); g.fillEllipse(31 - step, -3, 30, 13);
+      g.fillStyle(recoil > .2 ? 0xc8ffe6 : 0x263b52); g.fillRoundedRect(-26, -131, 52, 75, 16);
+      g.lineStyle(2, 0x80e2be); g.strokeRoundedRect(-26, -131, 52, 75, 16);
+      g.fillStyle(0x76efca); g.fillTriangle(0, -112, -14, -90, 14, -90);
+      g.fillStyle(0x13273a); g.fillRect(-24, -72, 48, 12);
+      g.fillStyle(0xadff9d); g.fillCircle(0, -67, 5);
+      g.lineStyle(11, 0x69d8b0); g.lineBetween(-23, -118, -40, winner ? -178 : -82);
+      g.lineBetween(24, -117, handX - 16, handY + 11); g.lineBetween(handX - 16, handY + 11, handX, handY);
+      g.fillStyle(0x9af3be); g.fillCircle(handX, handY, 7);
+      g.lineStyle(3, 0x7bd8bb); g.lineBetween(-17, -181, -25, -206); g.lineBetween(15, -181, 21, -210);
+      g.fillStyle(0xbdffa5); g.fillCircle(-25, -206, 5); g.fillCircle(21, -210, 5);
+      g.fillStyle(recoil > .2 ? 0xd6ffe3 : 0x80deb4); g.fillEllipse(0, -165, 69, 67);
+      g.fillStyle(0x103f43); g.fillEllipse(-16, -169, 19, 29); g.fillEllipse(16, -169, 19, 29);
+      g.fillStyle(0xafffee); g.fillEllipse(-13, -173, 6, 12); g.fillEllipse(19, -173, 6, 12);
+      g.lineStyle(2, 0x28766a); g.lineBetween(-6, -144, 9, -144);
+    } else {
+      // Robot: armored plates, mechanical joints, antenna and reactor core.
+      g.lineStyle(17, 0x4e6273); g.lineBetween(-17, -61, -24 + step, -30); g.lineBetween(-24 + step, -30, -27 + step, -6);
+      g.lineBetween(17, -61, 24 - step, -30); g.lineBetween(24 - step, -30, 29 - step, -6);
+      g.fillStyle(0xeda65e); g.fillCircle(-24 + step, -30, 8); g.fillCircle(24 - step, -30, 8);
+      g.fillStyle(0x263e51); g.fillRoundedRect(-42 + step, -12, 35, 16, 4); g.fillRoundedRect(14 - step, -12, 35, 16, 4);
+      g.fillStyle(recoil > .2 ? 0xffddab : 0x647e90); g.fillRoundedRect(-34, -138, 68, 80, 8);
+      g.lineStyle(3, 0xa6b6bd); g.strokeRoundedRect(-34, -138, 68, 80, 8);
+      g.fillStyle(0x253b4d); g.fillRoundedRect(-21, -124, 42, 49, 5);
+      g.fillStyle(charging ? 0xff634e : 0xffc270); g.fillCircle(0, -102, 14);
+      g.fillStyle(0xfff2be); g.fillCircle(0, -102, 6);
+      g.lineStyle(18, 0x536b80); g.lineBetween(-30, -120, -44, winner ? -182 : -83);
+      g.lineBetween(30, -120, handX - 16, handY + 12); g.lineBetween(handX - 16, handY + 12, handX, handY);
+      g.fillStyle(0xe4ac69); g.fillCircle(-30, -120, 10); g.fillCircle(30, -120, 10);
+      g.fillStyle(0x9cb2c2); g.fillRoundedRect(handX - 9, handY - 8, 18, 19, 4);
+      g.fillStyle(0x829caa); g.fillRoundedRect(-30, -190, 60, 46, 8);
+      g.fillStyle(0x1c3447); g.fillRoundedRect(-24, -179, 48, 16, 4);
+      g.fillStyle(charging ? 0xff684f : 0xffcf81); g.fillRect(-17, -175, 13, 7); g.fillRect(6, -175, 13, 7);
+      g.lineStyle(4, 0x91a9b7); g.lineBetween(0, -190, 0, -207);
+      g.fillStyle(0xffd27d); g.fillCircle(0, -211, 5);
+      g.lineStyle(2, 0x273e4e); for (let x = -10; x <= 10; x += 10) g.lineBetween(x, -155, x + 4, -155);
+    }
+    // Plasma blade keeps each attack readable in the new science-fiction theme.
     g.save(); g.translateCanvas(handX, handY); g.rotateCanvas(charging ? -.6 : swing * 1.45 - .18);
-    g.fillStyle(0xd7ded0); g.fillRoundedRect(-6, -60, 12, 65, 3);
-    g.fillStyle(0x887860); g.fillRect(-17, 0, 34, 7); g.fillStyle(0x553e30); g.fillRect(-5, 7, 10, 16); g.restore();
-    g.fillStyle(0xe6b891); g.fillCircle(0, -163, 26);
-    g.fillStyle(0x263038); g.fillRoundedRect(-28, -189, 56, 21, 5); g.fillRect(-28, -185, 12, 22);
-    g.fillStyle(0x16272b); g.fillRect(9, -167, 7, 5);
-    g.lineStyle(2, 0x79594b); g.lineBetween(9, -150, 17, -150);
+    g.fillStyle(alien ? 0x56ebd8 : 0xffa967, .2); g.fillRoundedRect(-12, -68, 24, 74, 7);
+    g.fillStyle(alien ? 0xa6fff0 : 0xffd9a1); g.fillRoundedRect(-4, -63, 8, 66, 3);
+    g.fillStyle(0x22394d); g.fillRect(-13, 0, 26, 8); g.fillStyle(0x6d8294); g.fillRect(-5, 8, 10, 17);
+    g.restore();
     g.restore();
     if (guarding && !loser) {
       g.lineStyle(3, 0x9adefa, .75); g.strokeEllipse(f.x, 231, 126, 194);
       g.fillStyle(0x78cbed, .06); g.fillEllipse(f.x, 231, 126, 194);
     }
     if (charging && !finished) {
-      const progress = clamp(1 - (this.model.enemy.releaseAt - this.model.time) / 1.6, 0, 1);
+      const progress = clamp(1 - (this.model.enemy.releaseAt - this.model.time) / this.model.enemy.chargeTime, 0, 1);
       g.lineStyle(3, 0xf7b960, .5 + Math.sin(this.clock * 20) * .25); g.strokeEllipse(f.x, 329, 115, 29);
       g.fillStyle(0x53352c); g.fillRoundedRect(f.x - 47, 112, 94, 6, 3);
       g.fillStyle(0xffbe6c); g.fillRoundedRect(f.x - 47, 112, Math.max(1, progress * 94), 6, 3);
@@ -254,6 +279,6 @@ export class Arena extends Phaser.Scene {
     this.renderEffects();
     this.banner.setText(this.model.status === 'finished'
       ? (this.model.winner === 'player' ? 'VICTORIA' : this.model.winner === 'draw' ? 'EMPATE' : 'DERROTA')
-      : this.model.enemy.charging ? '¡RIVAL CARGANDO! · INTERRUMPE O BLOQUEA' : 'LA FORJA');
+      : this.model.enemy.charging ? '¡RIVAL CARGANDO! · INTERRUMPE O BLOQUEA' : 'FORJA / SECTOR ORBITAL');
   }
 }

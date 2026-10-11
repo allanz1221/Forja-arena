@@ -1,7 +1,7 @@
 import {neon} from '@neondatabase/serverless';
 import {credentials,passwordHash,passwordMatches,newToken,hashToken} from '../server/auth.js';
 import {replay} from '../server/replay.js';
-import {builds} from '../src/combat.js';
+import {builds,RULES_VERSION} from '../src/combat.js';
 const COOKIE='__Host-forja_account';
 const LIMIT=10;
 const fail=(res,status,error)=>res.status(status).json({error});
@@ -70,11 +70,11 @@ export default async function handler(req,res){
     opponent=(await sql`select id,username,archetype from forja_game.users where id=${body.opponentId}`)[0];
     if(!opponent)return fail(res,404,'Ese jugador ya no está disponible.');
    }
-   const snapshot={build:body.build,difficulty:opponent?'normal':body.difficulty,enemyBuild:opponent?.archetype||null,enemyName:opponent?.username||'El Centinela'};
+   const snapshot={rulesVersion:RULES_VERSION,build:body.build,difficulty:opponent?'normal':body.difficulty,enemyBuild:opponent?.archetype||null,enemyName:opponent?.username||'Centinela R-01'};
    const rows=await sql`with quota as (
     insert into forja_game.daily_usage(user_id,day,used) values (${user.id},(now() at time zone 'America/Hermosillo')::date,1)
     on conflict(user_id,day) do update set used=forja_game.daily_usage.used+1 where forja_game.daily_usage.used<10 returning used
-   ) insert into forja_game.matches(user_id,opponent_id,snapshot) select ${user.id},${opponent?.id||null},${JSON.stringify(snapshot)}::jsonb from quota returning id`;
+   ) insert into forja_game.matches(user_id,opponent_id,snapshot,rules_version) select ${user.id},${opponent?.id||null},${JSON.stringify(snapshot)}::jsonb,${RULES_VERSION} from quota returning id`;
    if(!rows.length)return fail(res,429,'Agotaste tus 10 combates. Se renuevan a medianoche de Sonora.');
    return res.status(200).json({matchId:rows[0].id,snapshot,...await state(sql,user)});
   }

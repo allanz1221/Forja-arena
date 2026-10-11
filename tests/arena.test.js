@@ -6,7 +6,7 @@ import {passwordHash,passwordMatches,credentials} from '../server/auth.js';
 import handler from '../api/arena.js';
 test('reproduce resultado y habilidades de todos los estilos contra personajes registrados',()=>{
  for(const build of Object.keys(builds))for(const enemyBuild of Object.keys(builds)){
-  const snapshot={build,enemyBuild,difficulty:'normal'},s=createCombat(build,'normal',enemyBuild),actions=[];s.status='running';
+  const snapshot={build,enemyBuild,difficulty:'normal',rulesVersion:'0.3.0'},s=createCombat(build,'normal',enemyBuild),actions=[];s.status='running';
   assert.equal(s.enemy.maxHp,builds[enemyBuild].hp);
   while(s.status==='running'){
    for(const id of [s.enemy.charging?'strike':'guard','heal'])if(activate(s,id))actions.push({step:s.steps,id});
@@ -28,4 +28,23 @@ test('arena rechaza origen cruzado antes de acceder a la base',async()=>{
  const old=process.env.DATABASE_URL;process.env.DATABASE_URL='configured';
  const res={setHeader(){},status(n){this.code=n;return this;},json(v){this.body=v;}};
  try{await handler({method:'POST',headers:{origin:'https://attacker.test',host:'forja.test','content-type':'application/json'}},res);assert.equal(res.code,403);}finally{if(old)process.env.DATABASE_URL=old;else delete process.env.DATABASE_URL;}
+});
+test('Normal permite ganar con los tres estilos sin habilidades y Desafiante exige decisiones',()=>{
+ for(const build of Object.keys(builds)){
+  const normal=replay({build,difficulty:'normal',rulesVersion:'0.3.0'},[]);
+  const hard=replay({build,difficulty:'hard',rulesVersion:'0.3.0'},[]);
+  assert.equal(normal.result,'player');assert.equal(hard.result,'enemy');
+  const s=createCombat(build,'hard'),commands=[];s.status='running';
+  while(s.status==='running'){
+   for(const id of [s.enemy.charging?'strike':null,s.player.hp<s.player.maxHp-24?'heal':null])if(id&&activate(s,id))commands.push({step:s.steps,id});
+   tick(s,.05);
+  }
+  assert.equal(replay({build,difficulty:'hard',rulesVersion:'0.3.0'},commands).result,'player');
+ }
+});
+test('los combates anteriores se verifican con las reglas anteriores',()=>{
+ const snapshot={build:'balanced',difficulty:'normal'},old=createCombat('balanced','normal',null,'0.2');old.status='running';
+ while(old.status==='running')tick(old,.05);
+ assert.equal(replay(snapshot,[]).result,old.winner);assert.equal(old.winner,'enemy');
+ assert.equal(createCombat().enemy.chargeTime,2.2);
 });
