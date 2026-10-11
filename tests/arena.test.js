@@ -48,3 +48,21 @@ test('los combates anteriores se verifican con las reglas anteriores',()=>{
  assert.equal(replay(snapshot,[]).result,old.winner);assert.equal(old.winner,'enemy');
  assert.equal(createCombat().enemy.chargeTime,2.2);
 });
+test('el nivel aumenta estadísticas y conserva la reejecución de habilidades',()=>{
+ for(const level of [1,2,5,20])for(const build of Object.keys(builds)){
+  const snapshot={build,difficulty:'normal',playerLevel:level,enemyLevel:level,rulesVersion:'0.3.1'},s=createCombat(build,'normal',null,'0.3.1',snapshot),commands=[];
+  assert.equal(s.player.maxHp,Math.round(builds[build].hp*(1+.1*(level-1))));
+  assert.equal(s.player.attack,Math.round(builds[build].attack*(1+.1*(level-1))));
+  assert.equal(s.enemy.maxHp,Math.round(120*(1+.1*(level-1))));s.status='running';
+  while(s.status==='running'){
+   for(const id of [s.enemy.charging?'strike':null,s.player.hp<s.player.maxHp-Math.round(24*s.skillFactor)?'heal':null])if(id&&activate(s,id))commands.push({step:s.steps,id});
+   tick(s,.05);
+  }
+  assert.equal(replay(snapshot,commands).result,s.winner);
+ }
+});
+test('reglas anteriores ignoran nuevos niveles y apariencia no afecta resultados',()=>{
+ const old=createCombat('balanced','normal',null,'0.3.0',{playerLevel:20,enemyLevel:20});assert.equal(old.player.maxHp,120);
+ const baseline={build:'balanced',difficulty:'normal',rulesVersion:'0.3.1',playerLevel:4,enemyLevel:4};
+ for(const scenario of ['orbital','mars','ice'])assert.deepEqual(replay({...baseline,scenario,playerCosmetics:{mask:'pumpkin',hat:'santa'}},[]),replay(baseline,[]));
+});

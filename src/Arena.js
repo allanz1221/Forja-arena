@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import {drawScenery,drawCosmetics} from './scenery.js';
+import {SCENARIOS} from './progression.js';
 import { createCombat, tick, activate } from './combat.js';
 
 const HOME = [350, 610];
@@ -25,7 +27,7 @@ export class Arena extends Phaser.Scene {
       attackAt: -10, hurtAt: -10, healAt: -10, heavy: false,
     }));
     this.effects = this.add.graphics().setDepth(4);
-    this.banner = this.add.text(480, 55, 'FORJA / SECTOR ORBITAL', {
+    this.banner = this.add.text(480, 55, this.scenario.name.toUpperCase(), {
       fontFamily: 'monospace', fontSize: '17px', color: '#ae9677',
       align: 'center', wordWrap: { width: 850 },
     }).setOrigin(.5).setDepth(6);
@@ -37,39 +39,30 @@ export class Arena extends Phaser.Scene {
     });
     this.game.events.on('start-duel', this.start, this);
     this.game.events.on('skill', this.skill, this);
+    this.game.events.on('cosmetics', this.cosmetics, this);
     this.game.events.on('pause-duel', this.pause, this);
     this.events.once('shutdown', () => {
       this.game.events.off('start-duel', this.start, this);
       this.game.events.off('skill', this.skill, this);
+      this.game.events.off('cosmetics', this.cosmetics, this);
       this.game.events.off('pause-duel', this.pause, this);
     });
     this.renderFighters();
     this.send();
   }
 
-  paintArena() {
-    const g = this.add.graphics();
-    g.fillGradientStyle(0x10223b, 0x151a36, 0x0c161f, 0x0c161f, 1); g.fillRect(0, 0, 960, 430);
-    // Deterministic starfield and orbital window.
-    for (let n = 0; n < 65; n++) { g.fillStyle(0xb9e6ff, .25 + (n % 4) * .15); g.fillCircle((n * 137 + 37) % 960, (n * 73 + 21) % 255, n % 6 === 0 ? 2 : 1); }
-    g.fillStyle(0x203e59); g.fillCircle(480, 119, 102); g.fillStyle(0x264d67); g.fillEllipse(459, 107, 120, 58);
-    g.lineStyle(2, 0x5e9ab1, .3); g.strokeEllipse(480, 119, 294, 65);
-    g.fillStyle(0x162c3e); g.fillRect(0, 285, 960, 145);
-    g.lineStyle(1, 0x436f80, .4);
-    for (let x = -600; x <= 1500; x += 120) g.lineBetween(480 + (x - 480) * .45, 285, x, 430);
-    for (const y of [299, 322, 358, 410]) g.lineBetween(0, y, 960, y);
-    g.fillStyle(0x233f4a); g.fillEllipse(480, 338, 790, 110);
-    g.lineStyle(3, 0x57cbbd, .65); g.strokeEllipse(480, 338, 790, 110);
-    for (const x of [90, 850]) {
-      g.fillStyle(0x1d3446); g.fillRoundedRect(x, 155, 20, 130, 5);
-      g.fillStyle(0x6ce7d9); g.fillRoundedRect(x + 6, 163, 8, 91, 3);
-      g.fillStyle(0x74fff1, .06); g.fillEllipse(x + 10, 210, 105, 190);
-    }
-    this.add.text(25, 400, 'SECTOR ORBITAL / ALIENS & ROBOTS', {fontSize:'11px',fontFamily:'monospace',color:'#91bcc6'});
+  paintArena(id='orbital') {
+    this.scenario=SCENARIOS.find(s=>s.id===id)||SCENARIOS[0];
+    if(!this.backdrop)this.backdrop=this.add.graphics().setDepth(0);
+    drawScenery(this.backdrop,this.scenario.id);
+    if(!this.locationLabel)this.locationLabel=this.add.text(25,400,'',{fontSize:'11px',fontFamily:'monospace',color:'#dcf0ec'}).setDepth(1);
+    this.locationLabel.setText(this.scenario.name.toUpperCase()+' / ALIENS & ROBOTS');
   }
 
   start(config) {
-    this.model = createCombat(config.build, config.difficulty, config.enemyBuild,config.rulesVersion);
+    this.model = createCombat(config.build, config.difficulty, config.enemyBuild,config.rulesVersion,config);
+    this.paintArena(config.scenario);
+    this.playerCosmetics=config.playerCosmetics||{};this.enemyCosmetics=config.enemyCosmetics||{};
     this.actions = [];
     this.model.status = 'running';
     this.lastEvent = 0; this.acc = 0; this.clock = 0; this.finishAt = null;
@@ -85,6 +78,8 @@ export class Arena extends Phaser.Scene {
     this.renderFighters(); this.send();
   }
 
+  cosmetics(value) { if(!['running','paused'].includes(this.model.status)){this.playerCosmetics=value;this.renderFighters();} }
+
   skill(id) {
     if (activate(this.model, id)) { this.actions.push({step:this.model.steps,id}); this.consumeEvents(); }
     this.send();
@@ -94,7 +89,7 @@ export class Arena extends Phaser.Scene {
     if (this.model.status === 'running') {
       this.model.status = 'paused'; this.cameras.main.stopShake();
     } else if (this.model.status === 'paused') this.model.status = 'running';
-    this.banner.setText(this.model.status === 'paused' ? 'EN PAUSA' : 'FORJA / SECTOR ORBITAL');
+    this.banner.setText(this.model.status === 'paused' ? 'EN PAUSA' : this.scenario.name.toUpperCase());
     this.send();
   }
 
@@ -224,6 +219,7 @@ export class Arena extends Phaser.Scene {
       g.fillStyle(0xffd27d); g.fillCircle(0, -211, 5);
       g.lineStyle(2, 0x273e4e); for (let x = -10; x <= 10; x += 10) g.lineBetween(x, -155, x + 4, -155);
     }
+    drawCosmetics(g, i===0?this.playerCosmetics:this.enemyCosmetics);
     // Plasma blade keeps each attack readable in the new science-fiction theme.
     g.save(); g.translateCanvas(handX, handY); g.rotateCanvas(charging ? -.6 : swing * 1.45 - .18);
     g.fillStyle(alien ? 0x56ebd8 : 0xffa967, .2); g.fillRoundedRect(-12, -68, 24, 74, 7);
@@ -279,6 +275,6 @@ export class Arena extends Phaser.Scene {
     this.renderEffects();
     this.banner.setText(this.model.status === 'finished'
       ? (this.model.winner === 'player' ? 'VICTORIA' : this.model.winner === 'draw' ? 'EMPATE' : 'DERROTA')
-      : this.model.enemy.charging ? '¡RIVAL CARGANDO! · INTERRUMPE O BLOQUEA' : 'FORJA / SECTOR ORBITAL');
+      : this.model.enemy.charging ? '¡RIVAL CARGANDO! · INTERRUMPE O BLOQUEA' : this.scenario.name.toUpperCase());
   }
 }

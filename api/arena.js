@@ -1,3 +1,5 @@
+import {randomInt} from 'node:crypto';
+import {levelFromXp,leveledStats,SCENARIOS,validCosmetics} from '../src/progression.js';
 import {neon} from '@neondatabase/serverless';
 import {credentials,passwordHash,passwordMatches,newToken,hashToken} from '../server/auth.js';
 import {replay} from '../server/replay.js';
@@ -9,7 +11,7 @@ function sessionCookie(res,token,age=2592000){res.setHeader('Set-Cookie',`${COOK
 async function state(sql,user){
  const quota=await sql`select used from forja_game.daily_usage where user_id=${user.id} and day=(now() at time zone 'America/Hermosillo')::date`;
  const history=await sql`select result,duration,created_at,snapshot from forja_game.matches where user_id=${user.id} and status='finished' order by created_at desc limit 12`;
- return {user:{id:user.id,name:user.username,archetype:user.archetype,xp:user.xp,wins:user.wins,matches:user.matches,history:history.map(h=>({at:h.created_at,result:h.result==='player'?'Victoria':h.result==='draw'?'Empate':'Derrota',seconds:Number(h.duration),build:builds[h.snapshot.build].name,rival:h.snapshot.enemyName}))},quota:{limit:LIMIT,used:quota[0]?.used||0,remaining:LIMIT-(quota[0]?.used||0),timezone:'America/Hermosillo'}};
+ return {user:{id:user.id,name:user.username,archetype:user.archetype,mask:user.mask,hat:user.hat,level:levelFromXp(user.xp),stats:leveledStats(builds[user.archetype],levelFromXp(user.xp)),xp:user.xp,wins:user.wins,matches:user.matches,history:history.map(h=>({at:h.created_at,result:h.result==='player'?'Victoria':h.result==='draw'?'Empate':'Derrota',seconds:Number(h.duration),build:builds[h.snapshot.build].name,rival:h.snapshot.enemyName}))},quota:{limit:LIMIT,used:quota[0]?.used||0,remaining:LIMIT-(quota[0]?.used||0),timezone:'America/Hermosillo'}};
 }
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');
@@ -29,8 +31,8 @@ export default async function handler(req,res){
    const action=req.query?.action;
    if(action==='players'){
     if(!user)return fail(res,401,'Inicia sesión para ver rivales.');
-    const players=await sql`select id,username as name,archetype,xp,wins,matches from forja_game.users where id<>${user.id} order by created_at desc limit 50`;
-    return res.status(200).json({players});
+    const players=await sql`select id,username as name,archetype,mask,hat,xp,wins,matches from forja_game.users where id<>${user.id} and floor(xp/100.0)=floor(${user.xp}::numeric/100.0) order by created_at desc limit 50`;
+    return res.status(200).json({level:levelFromXp(user.xp),players:players.map(p=>({...p,level:levelFromXp(p.xp)}))});
    }
    return res.status(200).json({configured:true,...(user?await state(sql,user):{user:null,quota:{limit:LIMIT,used:0,remaining:LIMIT,timezone:'America/Hermosillo'}})});
   }
@@ -57,6 +59,11 @@ export default async function handler(req,res){
   }
   if(!user)return fail(res,401,'Crea tu cuenta o inicia sesión para combatir.');
   if(action==='logout'){await sql`delete from forja_game.sessions where token_hash=${hashToken(token)}`;sessionCookie(res,'',0);return res.status(200).json({loggedOut:true});}
+  if(action==='cosmetics'){
+   if(!validCosmetics(body.mask,body.hat))return fail(res,400,'Accesorio inválido.');
+   user=(await sql`update forja_game.users set mask=${body.mask},hat=${body.hat} where id=${user.id} returning *`)[0];
+   return res.status(200).json(await state(sql,user));
+  }
   if(action==='style'){
    if(!Object.hasOwn(builds,body.build))return fail(res,400,'Estilo inválido.');
    user=(await sql`update forja_game.users set archetype=${body.build} where id=${user.id} returning *`)[0];
@@ -67,10 +74,11 @@ export default async function handler(req,res){
    let opponent=null;
    if(body.opponentId){
     if(typeof body.opponentId!=='string'||!/^[a-f0-9-]{36}$/i.test(body.opponentId)||body.opponentId===user.id)return fail(res,400,'Rival inválido.');
-    opponent=(await sql`select id,username,archetype from forja_game.users where id=${body.opponentId}`)[0];
+    opponent=(await sql`select id,username,archetype,xp,mask,hat from forja_game.users where id=${body.opponentId}`)[0];
     if(!opponent)return fail(res,404,'Ese jugador ya no está disponible.');
+    if(levelFromXp(opponent.xp)!==levelFromXp(user.xp))return fail(res,409,'El rival cambió de nivel. Actualiza la lista para encontrar rivales de tu nivel.');
    }
-   const snapshot={rulesVersion:RULES_VERSION,build:body.build,difficulty:opponent?'normal':body.difficulty,enemyBuild:opponent?.archetype||null,enemyName:opponent?.username||'Centinela R-01'};
+   const snapshot={playerLevel:levelFromXp(user.xp),enemyLevel:levelFromXp(opponent?.xp??user.xp),scenario:SCENARIOS[randomInt(SCENARIOS.length)].id,playerCosmetics:{mask:user.mask,hat:user.hat},enemyCosmetics:{mask:opponent?.mask||'none',hat:opponent?.hat||'none'},rulesVersion:RULES_VERSION,build:body.build,difficulty:opponent?'normal':body.difficulty,enemyBuild:opponent?.archetype||null,enemyName:opponent?.username||'Centinela R-01'};
    const rows=await sql`with quota as (
     insert into forja_game.daily_usage(user_id,day,used) values (${user.id},(now() at time zone 'America/Hermosillo')::date,1)
     on conflict(user_id,day) do update set used=forja_game.daily_usage.used+1 where forja_game.daily_usage.used<10 returning used

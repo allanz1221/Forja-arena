@@ -1,6 +1,6 @@
 import{createCombat,tick,activate,builds}from'../src/combat.js';
 export function replay(snapshot,actions){if(!Array.isArray(actions)||actions.length>200)throw new Error('Registro de habilidades inválido.');let previous=-1;for(const a of actions){if(!a||!Number.isInteger(a.step)||a.step<0||a.step>1202||a.step<previous||!['strike','guard','heal'].includes(a.id))throw new Error('Acción inválida.');previous=a.step;}
- const s=createCombat(snapshot.build,snapshot.difficulty,snapshot.enemyBuild,snapshot.rulesVersion||'0.2');s.status='running';let at=0;
+ const s=createCombat(snapshot.build,snapshot.difficulty,snapshot.enemyBuild,snapshot.rulesVersion||'0.2',snapshot);s.status='running';let at=0;
  for(let i=0;i<=1202&&s.status==='running';i++){
   while(at<actions.length&&actions[at].step===s.steps){if(!activate(s,actions[at].id))throw new Error('Habilidad fuera de energía o recarga.');at++;}
   if(s.status==='running')tick(s,.05);
