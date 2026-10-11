@@ -1,3 +1,4 @@
+import {leaderboard,rankingPage} from '../server/leaderboard.js';
 import {randomInt} from 'node:crypto';
 import {levelFromXp,leveledStats,SCENARIOS,validCosmetics} from '../src/progression.js';
 import {neon} from '@neondatabase/serverless';
@@ -29,6 +30,10 @@ export default async function handler(req,res){
   let user=validToken?(await sql`select u.* from forja_game.users u join forja_game.sessions s on u.id=s.user_id where s.token_hash=${hashToken(token)} and s.expires_at>now()`)[0]:null;
   if(req.method==='GET'){
    const action=req.query?.action;
+   if(action==='leaderboard'){
+    let page;try{page=rankingPage(req.query?.page);}catch(e){return fail(res,400,e.message);}
+    return res.status(200).json(await leaderboard(sql,page,user?.id||null));
+   }
    if(action==='players'){
     if(!user)return fail(res,401,'Inicia sesión para ver rivales.');
     const players=await sql`select id,username as name,archetype,mask,hat,xp,wins,matches from forja_game.users where id<>${user.id} and floor(xp/100.0)=floor(${user.xp}::numeric/100.0) order by created_at desc limit 50`;

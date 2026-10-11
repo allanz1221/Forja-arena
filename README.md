@@ -7,7 +7,9 @@ Prototipo de combate híbrido con gráficos originales. React/Vite muestra la in
 Node 22+. `npm ci`, `npm run dev`, `npm test`, `npm run build`.
 Vite sirve el frontend; para probar cuentas y API usa `vercel dev` con `DATABASE_URL` en el servidor. Nunca usar `VITE_DATABASE_URL` ni subir secretos a Git.
 
-## Versión 0.3.2
+## Versión 0.3.3
+
+El Salón de la fama muestra el top 3 y todos los usuarios registrados (incluyendo quienes aún no combatieron) con posiciones globales, nivel, XP, victorias y duelos. Ranking por XP descendente, victorias descendentes y nombre ascendente; páginas de 50, sin filtro de nivel. Disponible también sin iniciar sesión. La posición propia permanece visible aunque esté en otra página. `/api/arena?action=leaderboard&page=1` devuelve solo datos públicos. `scripts/verify-leaderboard.mjs` verifica paginación real de más de 50 cuentas y elimina sus fixtures.
 
 La preparación aparece antes de la arena: inicio directo con la configuración actual o Inicio avanzado para desplegar estilo, estadísticas, tipo de rival y dificultad. Al iniciar correctamente, el foco y el desplazamiento van a la batalla. Las tres habilidades se muestran en una sola fila debajo del duelo, incluso en móvil.
 
@@ -46,7 +48,7 @@ Migraciones: `001_neon_training.sql`, `002_accounts_and_duels.sql` y `003_cosmet
 
 Código: https://github.com/allanz1221/Forja-arena. Juego: https://forja-arena.vercel.app. Despliegue Vercel desde archivos fuente mediante API; el proyecto no tiene despliegue automático por push configurado. Sites conserva la versión inicial.
 
-19 pruebas del motor, reejecución, contraseñas, validación y origen; compilación Vite. Verificación real en Neon de registro, directorio, resultados y cuota con concurrencia. Falta QA visual en navegador en este entorno.
+20 pruebas del motor, reejecución, contraseñas, validación y origen; compilación Vite. Verificación real en Neon de registro, directorio, resultados y cuota con concurrencia. Falta QA visual en navegador en este entorno.
 
 ## Versionar cada actualización
 
