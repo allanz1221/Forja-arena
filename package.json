@@ -1,6 +1,6 @@
 {
   "name": "forja-arena",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",

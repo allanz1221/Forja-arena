@@ -27,6 +27,7 @@ export function activate(s,id,actor='player'){
  }
  if(id==='guard'){fighter.guardUntil=s.time+3;event(s,'guard',actor);}
  if(id==='heal'){const n=Math.min(Math.round(24*factor),fighter.maxHp-fighter.hp);fighter.hp+=n;event(s,'heal',actor,n);}
+ if(s.recording)s.recording.push({step:s.steps,time:Math.round(s.time*100)/100,actor,id});
  finish(s);return true;
 }
 function enemyDecision(s){

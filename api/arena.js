@@ -36,7 +36,7 @@ export default async function handler(req,res){
    }
    if(action==='players'){
     if(!user)return fail(res,401,'Inicia sesión para ver rivales.');
-    const players=await sql`select id,username as name,archetype,mask,hat,xp,wins,matches from forja_game.users where id<>${user.id} and floor(xp/100.0)=floor(${user.xp}::numeric/100.0) order by created_at desc limit 50`;
+    const players=await sql`select id,username as name,archetype,mask,hat,xp,wins,matches from forja_game.users where id<>${user.id} order by abs(floor(xp/100.0)-floor(${user.xp}::numeric/100.0)),xp desc,username asc limit 50`;
     return res.status(200).json({level:levelFromXp(user.xp),players:players.map(p=>({...p,level:levelFromXp(p.xp)}))});
    }
    return res.status(200).json({configured:true,...(user?await state(sql,user):{user:null,quota:{limit:LIMIT,used:0,remaining:LIMIT,timezone:'America/Hermosillo'}})});
@@ -81,7 +81,6 @@ export default async function handler(req,res){
     if(typeof body.opponentId!=='string'||!/^[a-f0-9-]{36}$/i.test(body.opponentId)||body.opponentId===user.id)return fail(res,400,'Rival inválido.');
     opponent=(await sql`select id,username,archetype,xp,mask,hat from forja_game.users where id=${body.opponentId}`)[0];
     if(!opponent)return fail(res,404,'Ese jugador ya no está disponible.');
-    if(levelFromXp(opponent.xp)!==levelFromXp(user.xp))return fail(res,409,'El rival cambió de nivel. Actualiza la lista para encontrar rivales de tu nivel.');
    }
    const snapshot={playerLevel:levelFromXp(user.xp),enemyLevel:levelFromXp(opponent?.xp??user.xp),scenario:SCENARIOS[randomInt(SCENARIOS.length)].id,playerCosmetics:{mask:user.mask,hat:user.hat},enemyCosmetics:{mask:opponent?.mask||'none',hat:opponent?.hat||'none'},rulesVersion:RULES_VERSION,build:body.build,difficulty:opponent?'normal':body.difficulty,enemyBuild:opponent?.archetype||null,enemyName:opponent?.username||'Centinela R-01'};
    const rows=await sql`with quota as (
@@ -99,7 +98,7 @@ export default async function handler(req,res){
    if(new Date(match.expires_at).getTime()<Date.now())return fail(res,410,'El combate expiró. Cada duelo puede finalizarse durante 15 minutos.');
    let outcome;try{outcome=replay(match.snapshot,body.commands);}catch(e){return fail(res,400,e.message);}
    const updated=await sql`with finalized as (
-    update forja_game.matches set status='finished',result=${outcome.result},actions=${JSON.stringify(body.commands)}::jsonb,duration=${outcome.duration}
+    update forja_game.matches set status='finished',result=${outcome.result},actions=${JSON.stringify(body.commands)}::jsonb,duration=${outcome.duration},recording=${JSON.stringify(outcome.recording)}::jsonb,recording_version=${outcome.recordingVersion}
     where id=${match.id} and user_id=${user.id} and status='started' and expires_at>now() returning id
    ) update forja_game.users set xp=xp+${outcome.reward},wins=wins+${outcome.result==='player'?1:0},matches=matches+1 where id=${user.id} and exists(select 1 from finalized) returning *`;
    user=updated[0]||(await sql`select * from forja_game.users where id=${user.id}`)[0];

@@ -90,3 +90,15 @@ test('nuevo rival usa habilidades: pasividad pierde y respuesta estratégica pue
  const idle=createCombat();idle.status='running';while(idle.status==='running')tick(idle,.05);
  assert.ok(idle.events.some(e=>e.actor==='enemy'&&e.kind==='strike'));
 });
+test('la grabación conserva habilidades verificadas de ambos actores',()=>{
+ const snapshot={build:'balanced',difficulty:'normal',rulesVersion:'0.3.2',playerLevel:4,enemyLevel:2};
+ const s=createCombat('balanced','normal',null,'0.3.2',snapshot),commands=[];s.status='running';
+ while(s.status==='running'){
+  if(s.enemy.charging&&activate(s,'strike'))commands.push({step:s.steps,id:'strike'});
+  if(s.player.hp<s.player.maxHp-24*s.skillFactor&&activate(s,'heal'))commands.push({step:s.steps,id:'heal'});
+  tick(s,.05);
+ }
+ const saved=replay(snapshot,commands);assert.equal(saved.result,s.winner);assert.equal(saved.recordingVersion,'1');
+ assert.deepEqual(saved.recording.filter(a=>a.actor==='player').map(({step,id})=>({step,id})),commands);
+ assert.ok(saved.recording.some(a=>a.actor==='enemy'));assert.deepEqual(replay(snapshot,commands).recording,saved.recording);
+});

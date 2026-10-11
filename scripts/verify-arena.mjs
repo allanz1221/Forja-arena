@@ -22,21 +22,22 @@ try{
  const restored=await request('state',{},cookie);assert.equal(restored.body.user.hat,'santa');
  const invalid=await request('cosmetics',{mask:'admin',hat:'santa'},cookie);assert.equal(invalid.code,400);
  await sql`update forja_game.users set xp=200 where id=${b.body.user.id}`;
- const filtered=await request('players',{},cookie);assert.ok(!filtered.body.players.some(p=>p.id===b.body.user.id));
- const mismatch=await request('start',{build:'heavy',difficulty:'normal',opponentId:b.body.user.id},cookie);assert.equal(mismatch.code,409);
- const unspent=await request('state',{},cookie);assert.equal(unspent.body.quota.used,0);
- await sql`update forja_game.users set xp=200 where id=${a.body.user.id}`;
+ const filtered=await request('players',{},cookie);assert.ok(filtered.body.players.some(p=>p.id===b.body.user.id));
+ await sql`update forja_game.users set xp=300 where id=${a.body.user.id}`;
+ const lower=await request('players',{},cookie);assert.ok(lower.body.players.some(p=>p.id===b.body.user.id));
+ await sql`update forja_game.users set xp=100 where id=${b.body.user.id}`;
  const matched=await request('players',{},cookie);assert.ok(matched.body.players.some(p=>p.id===b.body.user.id));
- const start=await request('start' ,{build:'heavy',difficulty:'normal',opponentId:b.body.user.id},cookie);assert.equal(start.code,200);assert.equal(start.body.snapshot.enemyBuild,'quick');assert.equal(start.body.snapshot.playerLevel,3);assert.equal(start.body.snapshot.enemyLevel,3);assert.equal(start.body.snapshot.playerCosmetics.mask,'pumpkin');assert.ok(SCENARIOS.some(x=>x.id===start.body.snapshot.scenario));
+ const start=await request('start' ,{build:'heavy',difficulty:'normal',opponentId:b.body.user.id},cookie);assert.equal(start.code,200);assert.equal(start.body.snapshot.enemyBuild,'quick');assert.equal(start.body.snapshot.playerLevel,4);assert.equal(start.body.snapshot.enemyLevel,2);assert.equal(start.body.snapshot.playerCosmetics.mask,'pumpkin');assert.ok(SCENARIOS.some(x=>x.id===start.body.snapshot.scenario));
  const s=createCombat('heavy','normal','quick',start.body.snapshot.rulesVersion,start.body.snapshot),commands=[];s.status='running';while(s.status==='running'){if(s.enemy.charging&&activate(s,'strike'))commands.push({step:s.steps,id:'strike'});if(s.player.hp<90&&activate(s,'heal'))commands.push({step:s.steps,id:'heal'});tick(s,.05);}
  const finishes=await Promise.all([request('finish',{matchId:start.body.matchId,commands},cookie),request('finish',{matchId:start.body.matchId,commands},cookie)]);for(const f of finishes)assert.equal(f.code,200);
- const state=await request('state',{},cookie);assert.equal(state.body.user.matches,1);assert.equal(state.body.user.xp,200+(s.winner==='player'?35:15));
+ const recording=(await sql`select recording,recording_version,actions from forja_game.matches where id=${start.body.matchId}`)[0];assert.equal(recording.recording_version,'1');assert.deepEqual(recording.actions,commands);assert.ok(recording.recording.some(x=>x.actor==='player'));assert.ok(recording.recording.some(x=>x.actor==='enemy'));
+ const state=await request('state',{},cookie);assert.equal(state.body.user.matches,1);assert.equal(state.body.user.xp,300+(s.winner==='player'?35:15));
  const opponentState=await request('state',{},other);assert.equal(opponentState.body.quota.used,0);assert.equal(opponentState.body.user.matches,0);
  const starts=await Promise.all(Array.from({length:12},(_,i)=>request('start',{build:'balanced',difficulty:'normal',opponentId:i%2?b.body.user.id:null},cookie)));
- assert.equal(starts.filter(x=>x.code===200).length,9);for(const duel of starts.filter(x=>x.code===200)){assert.equal(duel.body.snapshot.enemyLevel,3);assert.ok(SCENARIOS.some(x=>x.id===duel.body.snapshot.scenario));}assert.equal(starts.filter(x=>x.code===429).length,3);
+ assert.equal(starts.filter(x=>x.code===200).length,9);for(const duel of starts.filter(x=>x.code===200)){assert.equal(duel.body.snapshot.enemyLevel,duel.body.snapshot.enemyBuild?2:4);assert.ok(SCENARIOS.some(x=>x.id===duel.body.snapshot.scenario));}assert.equal(starts.filter(x=>x.code===429).length,3);
  const limited=await request('state',{},cookie);assert.equal(limited.body.quota.remaining,0);
  const login=await request('login',{username:names[0],password:'test_password_123'});assert.equal(login.code,200);assert.equal(login.body.quota.remaining,0);
  const bare=await request('cosmetics',{mask:'none',hat:'none'},cookie);assert.equal(bare.body.user.mask,'none');assert.equal(bare.body.user.hat,'none');
- console.log(JSON.stringify({ok:true,cosmeticsPersistAndRemove:true,sameLevelMatching:true,mismatchedRivalDoesNotConsumeQuota:true,leveledSnapshot:true,randomScenarioFromThree:true,registration:true,realPlayerOpponent:true,verifiedResult:true,concurrentFinishIdempotent:true,concurrentQuotaLimit:10,sharedAiPlayerQuota:true,loginRestoresQuota:true}));
+ console.log(JSON.stringify({ok:true,cosmeticsPersistAndRemove:true,allLevelRivals:true,lowerLevelVisible:true,verifiedMovesSaved:true,leveledSnapshot:true,randomScenarioFromThree:true,registration:true,realPlayerOpponent:true,verifiedResult:true,concurrentFinishIdempotent:true,concurrentQuotaLimit:10,sharedAiPlayerQuota:true,loginRestoresQuota:true}));
 }catch(e){console.error(JSON.stringify({ok:false,message:e.message.slice(0,180)}));process.exitCode=1;}
 finally{await sql`delete from forja_game.users where username=any(${names})`;await sql`delete from forja_game.auth_limits where key=${hashToken(ip)}`;}
