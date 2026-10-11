@@ -1,37 +1,42 @@
 # FORJA — React + Phaser + Neon
-Prototipo de combate híbrido inspirado en El Bruto, con gráficos originales. React/Vite para la interfaz; Phaser 3 para la arena; motor puro en src/combat.js. Vercel ejecuta las funciones API que acceden a PostgreSQL Neon por HTTP.
+
+Prototipo de combate híbrido con gráficos originales. React/Vite muestra la interfaz, Phaser 3 anima la arena y `src/combat.js` contiene el motor determinista. Las funciones Vercel acceden a PostgreSQL Neon desde el servidor.
 
 ## Ejecutar
-Node 22+. `npm ci`, `npm run dev`. `npm test` y `npm run build`.
-`npm run dev` sirve solo el frontend; para probar API y secretos localmente usa `vercel dev` con DATABASE_URL configurada en el servidor.
 
-## Persistencia
-- Local: progreso y últimos 12 duelos en localStorage, guardado automático.
-- Neon: Mi luchador → Guardar en Neon / Recuperar progreso. Guardado manual.
-- Sesión anónima de 30 días vinculada a una cookie aleatoria de 256 bits, HttpOnly, Secure, SameSite=Lax. En DB solo se guarda SHA-256 del token. Borrar cookies o cambiar de dispositivo impide recuperar ese guardado. No existen cuentas de usuario todavía.
-- API comprueba origen para escrituras, valida estructura y limita 20 guardados/minuto por sesión. Esta cuota no es protección global antiabuso ni protección de altas de nuevas sesiones.
-- Esquema aislado forja_training, RLS activa sin políticas públicas. Acceso exclusivamente desde servidor con la credencial propietaria. Para producción se recomienda crear un rol específico limitado a estas tablas.
-- Las sesiones expiran en 30 días; los registros no se borran automáticamente. Añadir limpieza periódica antes de producción pública.
-- Entrenamiento editable por cliente: no es XP competitivo. El servidor aún no valida combates para un ranking.
+Node 22+. `npm ci`, `npm run dev`, `npm test`, `npm run build`.
+Vite sirve el frontend; para probar cuentas y API usa `vercel dev` con `DATABASE_URL` en el servidor. Nunca usar `VITE_DATABASE_URL` ni subir secretos a Git.
 
-## Configuración
-Vercel: framework Vite, output dist, build npm run build, Node 24, API región cle1. DATABASE_URL es secreto sensible del servidor para production/preview. Nunca VITE_DATABASE_URL. El repositorio no contiene contraseñas.
-Migración versionada: db/migrations/001_neon_training.sql; usar conexión directa para migrar. La URL pooler sirve al tráfico normal. scripts/db-task.mjs recibe por stdin oculto JSON con connectionString y action inspect/migrate/verify.
-/api/health verifica acceso a la tabla sin revelar credenciales ni datos; /api/game permite GET perfil de sesión y POST {profile} para guardar.
+## Versión 0.2
+
+- Personajes articulados, desplazamientos, espadas, retrocesos, partículas, números de daño y efectos de habilidades. Animaciones de victoria y caída; resultado centrado sobre la arena.
+- Registro e inicio de sesión con usuario y contraseña. Usuario público de 3–24 letras, números o guion bajo; contraseña de 10–128 caracteres. Todavía no hay recuperación de contraseña.
+- Contraseñas con scrypt y sal; sesiones de 30 días con cookie HttpOnly, Secure, SameSite=Lax. Solo el hash SHA-256 del token se guarda en DB. Comprobación de origen y cuota de autenticación por IP.
+- Diez inicios diarios por cuenta, compartidos entre IA y personajes de otros usuarios. Abandonar consume el ataque. Reinicio a medianoche de Sonora, America/Hermosillo (UTC−7). La reserva atómica impide exceder la cuota con solicitudes concurrentes.
+- Rivales: hasta 50 usuarios registrados más recientes, excluyendo la propia cuenta. Usa su estilo guardado como snapshot; la IA controla al rival aunque esté desconectado. No es PvP en vivo. Ser atacado no consume su cuota ni altera su historial.
+- Cada inicio emite un matchId con snapshot y versión de reglas. Al finalizar el servidor reejecuta las habilidades por tick y concede XP una sola vez mediante una operación atómica. Los resultados pueden reenviarse sin duplicar recompensas. Expiración a los 15 minutos, incluyendo pausas.
+- Progreso e historial asociados a cuenta. El entrenamiento local anterior no se importa; `/api/game` conserva el guardado anónimo antiguo separado del nuevo esquema.
 
 ## Mecánicas
-Duelo contra IA de hasta 60 segundos simulados. Ataques básicos automáticos. Equilibrado: 120 vida, 9 daño cada 1.5s; Coloso: 145, 12 cada 2s; Ágil: 100, 7 cada 1s. Rival normal 120/9; desafiante 155/12, básicos cada 1.8s.
-Energía 65 inicial, 100 máximo, +7/s. Impacto: 26 daño, 35 energía, 8s recarga, interrumpe carga. Guardia: 25 energía, 10s recarga, 70% reducción por 3s. Segundo aire: cura 24, 40 energía, 14s recarga. Rival carga golpe de 29 tras aviso de 1.6s. Teclas 1/2/3 o botones táctiles.
-Victoria +35 XP; derrota/empate +15. Nivel cosmético cada 100 XP. A 60s se compara porcentaje de vida; empate si es igual. Sin PvP, ranking, mascotas o inventario.
 
-## Arquitectura futura competitiva
-start-match crea snapshot y versión de reglas. finish-match reejecuta acciones registradas por tick en el servidor y concede XP en una transacción idempotente. PvP en vivo requiere un servidor persistente autoritativo por WebSocket; un canal de mensajes no valida combates.
+Hasta 60 segundos simulados. Ataques básicos automáticos. Equilibrado: 120 vida, 9 daño cada 1.5s; Coloso: 145, 12 cada 2s; Ágil: 100, 7 cada 1s. Centinela normal: 120/9; desafiante: 155/12, básicos cada 1.8s.
 
-## Git y despliegue
-Repositorio: https://github.com/allanz1221/Forja-arena. Vercel se desplegó mediante API; la vinculación para despliegue automático por push queda pendiente.
-El despliegue anterior en Sites conserva la primera versión de entrenamiento local; el destino nuevo de esta migración es Vercel.
+Energía: 65 inicial, 100 máximo, +7/s. Impacto: 26 daño, 35 energía, 8s recarga; interrumpe la carga rival. Guardia: 25 energía, 10s recarga, reduce daño 70% por 3s. Segundo aire: cura 24, 40 energía, 14s recarga. Rival anuncia golpe de 29 con 1.6s de aviso. Teclas 1/2/3 o controles táctiles.
 
-## Verificación
-9 pruebas del motor/validación/API y compilación Vite. La conexión Neon y la migración se verifican por consultas reales. Sin QA visual de navegador en este entorno.
+Victoria: 35 XP; derrota o empate: 15. Nivel cosmético cada 100 XP. A los 60s se compara el porcentaje de vida. Sin ranking, inventario, mascotas ni duelos en vivo. La reejecución valida reglas pero no garantiza tiempos humanos: antes de competencia pública, añadir control temporal, prevención de bots y abuso de múltiples cuentas.
 
-Verificación real adicional: handler de guardado y recuperación con Neon responde 200; otra sesión obtiene profile=null. La sesión de prueba se eliminó al finalizar. En Vercel /api/health y /api/game respondieron 200; el despliegue quedó READY. Falta QA visual y prueba del botón desde un navegador.
+## Configuración y datos
+
+Vercel: Vite, `dist`, `npm run build`, Node 24, región cle1. `DATABASE_URL` es variable sensible del servidor en production/preview.
+
+Migraciones: `001_neon_training.sql` y `002_accounts_and_duels.sql` en `db/migrations`. Ejecutar en orden usando conexión directa. Esquemas separados `forja_training` y `forja_game`, RLS activa sin acceso público, credencial propietaria usada solo desde el servidor. Para producción crear rol limitado y limpieza periódica de sesiones y partidas expiradas.
+
+`scripts/db-task.mjs` recibe JSON por stdin oculto: `connectionString`, `action` y `migrationFile` opcional. `scripts/verify-arena.mjs` recibe `connectionString`; crea dos cuentas de prueba, verifica rival, recompensa idempotente y cuota concurrente compartida, y elimina sus datos.
+
+`/api/arena`: GET estado o `?action=players`; POST acciones `register`, `login`, `logout`, `style`, `start`, `finish`. `/api/health`: disponibilidad de DB. `/api/game`: guardado anónimo antiguo.
+
+## Publicación y verificación
+
+Código: https://github.com/allanz1221/Forja-arena. Juego: https://forja-arena.vercel.app. Despliegue Vercel desde archivos fuente mediante API; el proyecto no tiene despliegue automático por push configurado. Sites conserva la versión inicial.
+
+13 pruebas del motor, reejecución, contraseñas, validación y origen; compilación Vite. Verificación real en Neon de registro, directorio, resultados y cuota con concurrencia. Falta QA visual en navegador en este entorno.
