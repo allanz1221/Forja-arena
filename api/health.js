@@ -1,0 +1,2 @@
+import{neon}from'@neondatabase/serverless';
+export default async function handler(req,res){res.setHeader('Cache-Control','no-store');try{const sql=neon(process.env.DATABASE_URL);await sql`select 1 from forja_training.saves limit 0`;return res.status(200).json({ok:true,database:'connected',storage:'neon',schema:'forja_training'});}catch{return res.status(503).json({ok:false,database:'unavailable'});}}

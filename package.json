@@ -1,0 +1,1 @@
+{"name":"forja-arena","version":"0.1.0","type":"module","scripts":{"dev":"vite --host 0.0.0.0","build":"vite build","test":"node --test tests/*.test.js"},"dependencies":{"@neondatabase/serverless":"^1.0.2","phaser":"3.90.0","react":"19.2.0","react-dom":"19.2.0"},"devDependencies":{"vite":"7.1.7"}}
