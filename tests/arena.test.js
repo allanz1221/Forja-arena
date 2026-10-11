@@ -6,7 +6,7 @@ import {passwordHash,passwordMatches,credentials} from '../server/auth.js';
 import handler from '../api/arena.js';
 test('reproduce resultado y habilidades de todos los estilos contra personajes registrados',()=>{
  for(const build of Object.keys(builds))for(const enemyBuild of Object.keys(builds)){
-  const snapshot={build,enemyBuild,difficulty:'normal',rulesVersion:'0.3.0'},s=createCombat(build,'normal',enemyBuild),actions=[];s.status='running';
+  const snapshot={build,enemyBuild,difficulty:'normal',rulesVersion:'0.3.0'},s=createCombat(build,'normal',enemyBuild,'0.3.0'),actions=[];s.status='running';
   assert.equal(s.enemy.maxHp,builds[enemyBuild].hp);
   while(s.status==='running'){
    for(const id of [s.enemy.charging?'strike':'guard','heal'])if(activate(s,id))actions.push({step:s.steps,id});
@@ -34,7 +34,7 @@ test('Normal permite ganar con los tres estilos sin habilidades y Desafiante exi
   const normal=replay({build,difficulty:'normal',rulesVersion:'0.3.0'},[]);
   const hard=replay({build,difficulty:'hard',rulesVersion:'0.3.0'},[]);
   assert.equal(normal.result,'player');assert.equal(hard.result,'enemy');
-  const s=createCombat(build,'hard'),commands=[];s.status='running';
+  const s=createCombat(build,'hard',null,'0.3.0'),commands=[];s.status='running';
   while(s.status==='running'){
    for(const id of [s.enemy.charging?'strike':null,s.player.hp<s.player.maxHp-24?'heal':null])if(id&&activate(s,id))commands.push({step:s.steps,id});
    tick(s,.05);
@@ -46,7 +46,7 @@ test('los combates anteriores se verifican con las reglas anteriores',()=>{
  const snapshot={build:'balanced',difficulty:'normal'},old=createCombat('balanced','normal',null,'0.2');old.status='running';
  while(old.status==='running')tick(old,.05);
  assert.equal(replay(snapshot,[]).result,old.winner);assert.equal(old.winner,'enemy');
- assert.equal(createCombat().enemy.chargeTime,2.2);
+ assert.equal(createCombat('balanced','normal',null,'0.3.1').enemy.chargeTime,2.2);
 });
 test('el nivel aumenta estadísticas y conserva la reejecución de habilidades',()=>{
  for(const level of [1,2,5,20])for(const build of Object.keys(builds)){
@@ -65,4 +65,28 @@ test('reglas anteriores ignoran nuevos niveles y apariencia no afecta resultados
  const old=createCombat('balanced','normal',null,'0.3.0',{playerLevel:20,enemyLevel:20});assert.equal(old.player.maxHp,120);
  const baseline={build:'balanced',difficulty:'normal',rulesVersion:'0.3.1',playerLevel:4,enemyLevel:4};
  for(const scenario of ['orbital','mars','ice'])assert.deepEqual(replay({...baseline,scenario,playerCosmetics:{mask:'pumpkin',hat:'santa'}},[]),replay(baseline,[]));
+});
+test('el rival comparte costes y recargas y su guardia bloquea',()=>{
+ const s=createCombat();s.status='running';s.enemy.hp=100;
+ assert.equal(activate(s,'guard','enemy'),true);assert.equal(s.enemy.energy,40);assert.equal(activate(s,'guard','enemy'),false);
+ assert.equal(activate(s,'strike'),true);assert.equal(s.enemy.hp,92);
+ assert.equal(activate(s,'heal','enemy'),true);assert.equal(s.enemy.energy,0);assert.equal(s.enemy.hp,116);
+ assert.equal(activate(s,'strike','enemy'),false);
+ s.status='paused';const energy=s.enemy.energy;tick(s,5);assert.equal(s.enemy.energy,energy);
+});
+test('nuevo rival usa habilidades: pasividad pierde y respuesta estratégica puede ganar',()=>{
+ for(const build of Object.keys(builds))for(const level of [1,5,20]){
+  const snapshot={build,difficulty:'normal',rulesVersion:'0.3.2',playerLevel:level,enemyLevel:level};
+  assert.equal(replay(snapshot,[]).result,'enemy');
+  const s=createCombat(build,'normal',null,'0.3.2',snapshot),actions=[],used=new Set();s.status='running';
+  while(s.status==='running'){
+   if(s.enemy.charging&&activate(s,'strike'))actions.push({step:s.steps,id:'strike'});
+   if(s.player.hp<s.player.maxHp-Math.round(24*s.skillFactor)&&activate(s,'heal'))actions.push({step:s.steps,id:'heal'});
+   if(s.enemy.charging&&(s.player.cooldowns.strike||0)>s.time&&activate(s,'guard'))actions.push({step:s.steps,id:'guard'});
+   tick(s,.05);for(const e of s.events)if(e.actor==='enemy'&&(e.type==='heal'||e.type==='guard'||e.kind==='strike'))used.add(e.type==='hit'?'strike':e.type);
+  }
+  assert.equal(replay(snapshot,actions).result,'player');assert.ok(used.has('guard'));assert.ok(used.has('heal'));
+ }
+ const idle=createCombat();idle.status='running';while(idle.status==='running')tick(idle,.05);
+ assert.ok(idle.events.some(e=>e.actor==='enemy'&&e.kind==='strike'));
 });

@@ -108,15 +108,15 @@ export class Arena extends Phaser.Scene {
         this.burst(f.x, 324, 0xa7bda3, 6, 35);
       }
       if (e.type === 'guard') {
-        this.floatText(this.fighters[0].x, 100, 'GUARDIA', '#94e8ff', 18);
-        this.burst(this.fighters[0].x, 240, 0x91e3ff, 12, 90);
+        this.floatText(this.fighters[actor].x, 100, actor===1?'GUARDIA RIVAL':'GUARDIA', '#94e8ff', 18);
+        this.burst(this.fighters[actor].x, 240, 0x91e3ff, 12, 90);
       }
       if (e.type === 'heal') {
-        this.fighters[0].healAt = this.clock;
-        this.floatText(this.fighters[0].x, 95, '+' + e.amount, '#bcff9a', 28);
-        this.burst(this.fighters[0].x, 260, 0xa8ff97, 20, 80);
+        this.fighters[actor].healAt = this.clock;
+        this.floatText(this.fighters[actor].x, 95, '+' + e.amount, '#bcff9a', 28);
+        this.burst(this.fighters[actor].x, 260, 0xa8ff97, 20, 80);
       }
-      if (e.type === 'charge') this.floatText(this.fighters[1].x, 95, '¡GOLPE PESADO!', '#ffd38e', 18);
+      if (e.type === 'charge') this.floatText(this.fighters[1].x, 95, this.model.enemyAbilities?'¡IMPACTO RIVAL!':'¡GOLPE PESADO!', '#ffd38e', 18);
       if (e.type === 'interrupt') this.floatText(480, 115, '¡INTERRUMPIDO!', '#d8ff8e', 21);
       if (e.type === 'finish') this.finishAt = this.clock + .4;
     }
@@ -157,7 +157,7 @@ export class Arena extends Phaser.Scene {
     const lunging = attacking ? (attack < .16 ? ease(attack / .16) : 1 - ease(clamp((attack - .23) / .39, 0, 1))) : 0;
     const recoil = hurt >= 0 && hurt < .35 ? Math.sin(hurt / .35 * Math.PI) : 0;
     const charging = i === 1 && this.model.enemy.charging;
-    const guarding = i === 0 && this.model.time < this.model.player.guardUntil;
+    const guarding = this.model.time < (i===0?this.model.player.guardUntil:this.model.enemy.guardUntil||0);
     const finished = this.finishAt !== null && this.clock >= this.finishAt;
     const loser = finished && this.model.winner !== 'draw' && this.model.winner !== (i === 0 ? 'player' : 'enemy');
     const winner = finished && this.model.winner === (i === 0 ? 'player' : 'enemy');

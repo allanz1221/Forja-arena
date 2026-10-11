@@ -7,15 +7,15 @@ Prototipo de combate híbrido con gráficos originales. React/Vite muestra la in
 Node 22+. `npm ci`, `npm run dev`, `npm test`, `npm run build`.
 Vite sirve el frontend; para probar cuentas y API usa `vercel dev` con `DATABASE_URL` en el servidor. Nunca usar `VITE_DATABASE_URL` ni subir secretos a Git.
 
-## Versión 0.3.1
+## Versión 0.3.2
 
 La preparación aparece antes de la arena: inicio directo con la configuración actual o Inicio avanzado para desplegar estilo, estadísticas, tipo de rival y dificultad. Al iniciar correctamente, el foco y el desplazamiento van a la batalla. Las tres habilidades se muestran en una sola fila debajo del duelo, incluso en móvil.
 
 - Tres escenarios con selección uniforme al azar en el servidor al comenzar cada duelo: Estación orbital, Cañón marciano y Base glacial. Se guarda en el snapshot y puede repetirse consecutivamente.
 - Máscara de calabaza y gorro de Santa Claus: equipar juntos o por separado y quitar. Persisten en la cuenta y en el snapshot del rival; no otorgan estadísticas.
-- Vida, ataque y habilidades escalan por nivel. El servidor obtiene los niveles del XP registrado, sin confiar en valores enviados por el cliente. Reejecución compatible con partidas de versiones 0.2 y 0.3.0.
+- Vida, ataque y habilidades escalan por nivel. El servidor obtiene los niveles del XP registrado, sin confiar en valores enviados por el cliente. Reejecución compatible con partidas de versiones 0.2, 0.3.0 y 0.3.1.
 - Alien con exotraje y espada de plasma contra robot con armadura, visor y reactor, en un escenario orbital.
-- Normal ahora permite ganar con cualquiera de los tres estilos; Desafiante requiere decisiones con habilidades. Los duelos ya iniciados con reglas 0.2 conservan su reejecución anterior.
+- El rival usa Impacto, Guardia y Segundo aire: 65 energía inicial, regeneración de 7/s y mismos costes y recargas que el jugador. Las decisiones de la IA son deterministas, con intervalos de 2s para defensa/curación; no reacciona instantáneamente a los botones. Impacto se anuncia con 1.8s en Normal o 1.3s en Desafiante. No puede usar otras habilidades durante la carga. Interrumpirlo retrasa el siguiente intento 8s. Ambos pueden bloquear daño. Sin habilidades, los tres estilos pierden contra Normal; respondiendo al rival se puede ganar. Los duelos ya iniciados con reglas 0.2 conservan su reejecución anterior.
 - Personajes articulados, desplazamientos, espadas, retrocesos, partículas, números de daño y efectos de habilidades. Animaciones de victoria y caída; resultado centrado sobre la arena.
 - Registro e inicio de sesión con usuario y contraseña. Usuario público de 3–24 letras, números o guion bajo; contraseña de 10–128 caracteres. Todavía no hay recuperación de contraseña.
 - Contraseñas con scrypt y sal; sesiones de 30 días con cookie HttpOnly, Secure, SameSite=Lax. Solo el hash SHA-256 del token se guarda en DB. Comprobación de origen y cuota de autenticación por IP.
@@ -26,9 +26,9 @@ La preparación aparece antes de la arena: inicio directo con la configuración 
 
 ## Mecánicas
 
-Hasta 60 segundos simulados. Ataques básicos automáticos. Equilibrado: 120 vida, 9 daño cada 1.5s; Coloso: 145, 12 cada 2s; Ágil: 100, 7 cada 1s. Centinela R-01 normal: 120 vida, 8 daño cada 2s; desafiante: 140 vida, 9 daño cada 1.9s.
+Hasta 60 segundos simulados. Ataques básicos automáticos. Equilibrado: 120 vida, 9 daño cada 1.5s; Coloso: 145, 12 cada 2s; Ágil: 100, 7 cada 1s. Centinela R-01 normal: 120 vida, 9 daño cada 1.8s; desafiante: 140 vida, 10 daño cada 1.7s.
 
-Energía: 65 inicial, 100 máximo, +7/s. Impacto: 26 daño, 35 energía, 8s recarga; interrumpe la carga rival. Guardia: 25 energía, 10s recarga, reduce daño 70% por 3s. Segundo aire: cura 24, 40 energía, 14s recarga. Robot normal: golpe pesado de 22 con aviso de 2.2s, primera carga a los 10s; desafiante: 25 con aviso de 1.8s, primera carga a los 8s. Personajes de otros usuarios conservan sus estadísticas y la carga de 29 con aviso de 1.6s. Teclas 1/2/3 o controles táctiles.
+Energía: 65 inicial, 100 máximo, +7/s. Impacto: 26 daño, 35 energía, 8s recarga; interrumpe la carga rival. Guardia: 25 energía, 10s recarga, reduce daño 70% por 3s. Segundo aire: cura 24, 40 energía, 14s recarga. El rival usa Impacto de 26 de daño base, 35 energía y 8s de recarga, con carga de 1.8s en Normal o 1.3s en Desafiante. Primera carga a los 5s o 4s respectivamente. La carga requiere energía disponible; el coste se cobra al soltar Impacto. Los personajes de otros jugadores usan las mismas habilidades con sus estadísticas. Teclas 1/2/3 o controles táctiles.
 
 Victoria: 35 XP; derrota o empate: 15. Nivel cada 100 XP: por cada nivel adicional, +10% de vida y ataque base; daño de habilidades, curación y golpe pesado rival escalan en la misma proporción (redondeo al entero más cercano). A los 60s se compara el porcentaje de vida. Sin ranking, inventario, mascotas ni duelos en vivo. La reejecución valida reglas pero no garantiza tiempos humanos: antes de competencia pública, añadir control temporal, prevención de bots y abuso de múltiples cuentas.
 
@@ -46,7 +46,7 @@ Migraciones: `001_neon_training.sql`, `002_accounts_and_duels.sql` y `003_cosmet
 
 Código: https://github.com/allanz1221/Forja-arena. Juego: https://forja-arena.vercel.app. Despliegue Vercel desde archivos fuente mediante API; el proyecto no tiene despliegue automático por push configurado. Sites conserva la versión inicial.
 
-17 pruebas del motor, reejecución, contraseñas, validación y origen; compilación Vite. Verificación real en Neon de registro, directorio, resultados y cuota con concurrencia. Falta QA visual en navegador en este entorno.
+19 pruebas del motor, reejecución, contraseñas, validación y origen; compilación Vite. Verificación real en Neon de registro, directorio, resultados y cuota con concurrencia. Falta QA visual en navegador en este entorno.
 
 ## Versionar cada actualización
 
