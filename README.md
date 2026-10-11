@@ -57,3 +57,9 @@ La versión visible en el pie y la barra lateral se obtiene de `package.json` me
 ## Vista previa y archivo de jugadas
 
 Mi luchador muestra un retrato grande que reutiliza el dibujo de la arena. La máscara y el gorro se prueban al instante; Guardar apariencia los aplica a próximos duelos. Cada partida finalizada conserva actions (habilidades humanas por tick), snapshot (niveles, estilos, escenario, accesorios y reglas), resultado y duración. recording agrega habilidades aceptadas de ambos actores con step/time/actor/id y recording_version=1, generado por reejecución en el servidor. Los movimientos básicos se reconstruyen determinísticamente con las reglas. El registro no añade credenciales y permanece en tablas privadas. La IA rival aún no imita estrategias humanas. Los registros históricos conservan sus actions y snapshots; la columna de grabación nueva se llena al finalizar partidas desde esta versión.
+
+### Administración de bots (v0.3.5)
+
+El menú Administración usa una sesión independiente de ocho horas con cookie segura y validación en servidor. Configura `ADMIN_PASSWORD_HASH` únicamente en el servidor con el formato scrypt de `server/auth.js`; nunca uses una variable VITE para este valor. Aplica `db/migrations/005_admin_bots.sql` antes de desplegar.
+
+El panel guarda parámetros separados para Normal y Desafiante, permite desactivar habilidades y valida los límites. Cada inicio contra IA captura los parámetros y la revisión en la partida, de modo que modificar ajustes no altera duelos en curso ni sus grabaciones. Los rivales de jugadores conservan sus estadísticas. Las reglas anteriores siguen disponibles para verificar partidas ya iniciadas.

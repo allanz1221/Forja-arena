@@ -1,3 +1,4 @@
+import {readBotSettings} from '../server/bot-settings.js';
 import {leaderboard,rankingPage} from '../server/leaderboard.js';
 import {randomInt} from 'node:crypto';
 import {levelFromXp,leveledStats,SCENARIOS,validCosmetics} from '../src/progression.js';
@@ -83,6 +84,7 @@ export default async function handler(req,res){
     if(!opponent)return fail(res,404,'Ese jugador ya no está disponible.');
    }
    const snapshot={playerLevel:levelFromXp(user.xp),enemyLevel:levelFromXp(opponent?.xp??user.xp),scenario:SCENARIOS[randomInt(SCENARIOS.length)].id,playerCosmetics:{mask:user.mask,hat:user.hat},enemyCosmetics:{mask:opponent?.mask||'none',hat:opponent?.hat||'none'},rulesVersion:RULES_VERSION,build:body.build,difficulty:opponent?'normal':body.difficulty,enemyBuild:opponent?.archetype||null,enemyName:opponent?.username||'Centinela R-01'};
+   if(!opponent){const config=await readBotSettings(sql);snapshot.botSettings=config.settings[body.difficulty];snapshot.botRevision=config.revision;}
    const rows=await sql`with quota as (
     insert into forja_game.daily_usage(user_id,day,used) values (${user.id},(now() at time zone 'America/Hermosillo')::date,1)
     on conflict(user_id,day) do update set used=forja_game.daily_usage.used+1 where forja_game.daily_usage.used<10 returning used

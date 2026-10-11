@@ -67,7 +67,7 @@ test('reglas anteriores ignoran nuevos niveles y apariencia no afecta resultados
  for(const scenario of ['orbital','mars','ice'])assert.deepEqual(replay({...baseline,scenario,playerCosmetics:{mask:'pumpkin',hat:'santa'}},[]),replay(baseline,[]));
 });
 test('el rival comparte costes y recargas y su guardia bloquea',()=>{
- const s=createCombat();s.status='running';s.enemy.hp=100;
+ const s=createCombat('balanced','normal',null,'0.3.2');s.status='running';s.enemy.hp=100;
  assert.equal(activate(s,'guard','enemy'),true);assert.equal(s.enemy.energy,40);assert.equal(activate(s,'guard','enemy'),false);
  assert.equal(activate(s,'strike'),true);assert.equal(s.enemy.hp,92);
  assert.equal(activate(s,'heal','enemy'),true);assert.equal(s.enemy.energy,0);assert.equal(s.enemy.hp,116);
